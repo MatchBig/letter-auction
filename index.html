@@ -22,13 +22,13 @@
             <span class="shopItemName">💡 Hint</span>
             <span class="shopItemDesc">Reveal a random letter</span>
           </div>
-          <button id="hintBtn" onclick="buyItem('hint')">$3,000</button>
+          <button id="hintBtn" onclick="buyItem('hint')"></button>
         </div>
 
         <div class="shopItem" id="item-vowelDiscount">
           <div class="shopItemInfo">
             <span class="shopItemName">🔤 Vowel Deal</span>
-            <span class="shopItemDesc">Vowels cost $500</span>
+            <span class="shopItemDesc">Vowels cost $750</span>
           </div>
           <button onclick="buyItem('vowelDiscount')">$8,000</button>
         </div>
@@ -44,7 +44,7 @@
         <div class="shopItem" id="item-bonusWin">
           <div class="shopItemInfo">
             <span class="shopItemName">💰 Big Payout</span>
-            <span class="shopItemDesc">Win bonus +$5,000 extra</span>
+            <span class="shopItemDesc">Win bonus +$2,500 extra</span>
           </div>
           <button onclick="buyItem('bonusWin')">$12,000</button>
         </div>
@@ -172,6 +172,14 @@
           <span>Also reset max streak</span>
         </label>
         <small class="resetMaxWarning">Warning: this clears your highest streak.</small>
+      </div>
+
+      <div class="resetMaxRow">
+        <label class="resetMaxToggleWrap">
+          <input type="checkbox" id="resetNameToggle" />
+          <span>Also reset name</span>
+        </label>
+        <small class="resetMaxWarning">Warning: you'll be asked for your name again.</small>
       </div>
 
       <div class="modalActions">

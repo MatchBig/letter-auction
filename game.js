@@ -52,7 +52,7 @@ let resetTimes = {
 };
 
 const SHOP_ITEMS = {
-  hint:              { price: 3000, repeatable: true },
+  hint:              { price: 4000, repeatable: true },
   vowelDiscount:     { price: 8000, repeatable: false },
   consonantDiscount: { price: 6000, repeatable: false },
   bonusWin:          { price: 12000, repeatable: false },
@@ -226,16 +226,16 @@ async function waitForFirebaseCtx(maxMs = 8000) {
 }
 async function savePlayerNameForCurrentUser(name) {
   const ctx = fb();
-  const uid = getUid();
-  if (!ctx || !uid) return;
-  const ref = userProfileDoc(uid);
+  const user = ctx?.auth?.currentUser;
+  if (!ctx || !user || user.isAnonymous) return;
+  const ref = userProfileDoc(user.uid);
   await ctx.setDoc(ref, { playerName: name, updatedAt: ctx.serverTimestamp() }, { merge: true });
 }
 async function loadPlayerNameForCurrentUser() {
   const ctx = fb();
-  const uid = getUid();
-  if (!ctx || !uid) return;
-  const ref = userProfileDoc(uid);
+  const user = ctx?.auth?.currentUser;
+  if (!ctx || !user || user.isAnonymous) return;
+  const ref = userProfileDoc(user.uid);
   const snap = await ctx.getDoc(ref);
   if (!snap.exists()) return;
   const savedName = String(snap.data().playerName || "").trim();
@@ -245,6 +245,8 @@ async function loadPlayerNameForCurrentUser() {
   nameLocked = true;
   input.value = savedName;
   input.style.display = "none";
+  const submitBtn = document.querySelector("#submitArea button");
+  if (submitBtn) submitBtn.style.display = "none";
 }
 
 /* ---------- Save/Render helpers ---------- */
@@ -365,10 +367,11 @@ function updateHintAvailability() {
   if (!hintBtn) return;
   const noLettersLeft = display.length > 0 && !display.includes("_");
   hintBtn.disabled = gameOver || noLettersLeft;
+  hintBtn.textContent = "$" + SHOP_ITEMS.hint.price.toLocaleString();
 }
 function getCost(l) {
   let base = "aeiou".includes(l) ? 1000 : 750;
-  if ("aeiou".includes(l) && upgrades.vowelDiscount) base = 500;
+  if ("aeiou".includes(l) && upgrades.vowelDiscount) base = 750;
   if (!"aeiou".includes(l) && upgrades.consonantDiscount) base = 500;
   return base;
 }
@@ -455,13 +458,13 @@ function buyItem(id) {
     flashMsg("Hint used!");
   } else if (id === "vowelDiscount") {
     upgrades.vowelDiscount = true;
-    flashMsg("Vowels now cost $500!");
+    flashMsg("Vowels now cost $750!");
   } else if (id === "consonantDiscount") {
     upgrades.consonantDiscount = true;
     flashMsg("Consonants now cost $500!");
   } else if (id === "bonusWin") {
     upgrades.bonusWin = true;
-    flashMsg("Win bonus upgraded to $15,000!");
+    flashMsg("Win bonus upgraded to $12,500!");
   } else if (id === "safetyNet") {
     upgrades.safetyNet = true;
     flashMsg("Safety Net active!");
@@ -509,7 +512,7 @@ function startGame() {
   saveUpgrades();
   refreshStatsUI();
 }
-function useLetter(l) {
+async function useLetter(l) {
   if (gameOver) return;
   if (guessed.has(l)) return setMessage("Already guessed!", "bad");
 
@@ -533,14 +536,17 @@ function useLetter(l) {
 
   if (!display.includes("_")) {
     if (balance < 0) balance = 0;
-    const winBonus = upgrades.bonusWin ? 15000 : 10000;
+    const winBonus = upgrades.bonusWin ? 12500 : 10000;
     balance += winBonus;
     gamesWon++;
-    if (gamesWon > maxStreak) maxStreak = gamesWon;
+    const improved = gamesWon > maxStreak;
+    if (improved) maxStreak = gamesWon;
     setMessage("Solved! +$" + winBonus.toLocaleString(), "win");
     gameOver = true;
     saveRunState();
-    return refreshStatsUI();
+    refreshStatsUI();
+    if (improved) await autoSubmitScore();
+    return;
   }
 
   if (balance <= 0) {
@@ -583,6 +589,9 @@ function confirmRestart() {
   const toggle = document.getElementById("resetMaxToggle");
   const resetMaxToo = !!(toggle && toggle.checked);
 
+  const nameToggle = document.getElementById("resetNameToggle");
+  const resetNameToo = !!(nameToggle && nameToggle.checked);
+
   closeRestartModal();
 
   balance = 25000;
@@ -593,7 +602,7 @@ function confirmRestart() {
   saveRunState();
   saveUpgrades();
 
-  if (resetMaxToo) {
+  if (resetNameToo) {
     playerName = "";
     nameLocked = false;
     const input = document.getElementById("nameInput");
@@ -601,17 +610,27 @@ function confirmRestart() {
       input.value = "";
       input.style.display = "inline-block";
     }
+    const submitBtn = document.querySelector("#submitArea button");
+    if (submitBtn) submitBtn.style.display = "inline-block";
 
     const nameMsg = document.getElementById("nameError");
     if (nameMsg) {
       nameMsg.className = "";
       nameMsg.innerText = "";
     }
+    // Clear saved name
+    const uid = getUid();
+    if (uid) {
+      savePlayerNameForCurrentUser("");
+    }
   }
 
   applyTheme("light");
   startGame();
-  flashMsg(resetMaxToo ? "Run + max streak reset + name cleared!" : "Run reset!");
+  let msg = "Run reset!";
+  if (resetMaxToo) msg += " Max streak reset!";
+  if (resetNameToo) msg += " Name cleared!";
+  flashMsg(msg);
 }
 
 /* ---------- Firebase leaderboard ---------- */
@@ -789,6 +808,7 @@ async function submitScore() {
     playerName = rawName;
     nameLocked = true;
     input.style.display = "none";
+    document.querySelector("#submitArea button").style.display = "none";
     await savePlayerNameForCurrentUser(playerName);
   }
 
@@ -813,6 +833,21 @@ async function submitScore() {
     msg.innerText = "No improvement (best score kept).";
   }
 
+  await renderLeaderboard();
+}
+
+async function autoSubmitScore() {
+  if (!nameLocked || !playerName) return;
+
+  const currentScore = maxStreak;
+  const currentMoney = balance;
+  const uid = getUid();
+  if (!uid) return;
+
+  const boards = ["daily", "weekly", "monthly", "legacy"];
+  for (const b of boards) {
+    await upsertBestScore(b, uid, playerName, currentScore, currentMoney);
+  }
   await renderLeaderboard();
 }
 
