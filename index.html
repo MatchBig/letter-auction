@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Letter Auction</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div id="container">
+    <!-- SHOP -->
+    <div id="shop">
+      <h2>🛒 Shop</h2>
+      <p id="shopBalance"></p>
+
+      <div class="shopSection">
+        <div class="shopSectionTitle">⚡ Upgrades</div>
+
+        <div class="shopItem" id="item-hint">
+          <div class="shopItemInfo">
+            <span class="shopItemName">💡 Hint</span>
+            <span class="shopItemDesc">Reveal a random letter</span>
+          </div>
+          <button id="hintBtn" onclick="buyItem('hint')">$3,000</button>
+        </div>
+
+        <div class="shopItem" id="item-vowelDiscount">
+          <div class="shopItemInfo">
+            <span class="shopItemName">🔤 Vowel Deal</span>
+            <span class="shopItemDesc">Vowels cost $500</span>
+          </div>
+          <button onclick="buyItem('vowelDiscount')">$8,000</button>
+        </div>
+
+        <div class="shopItem" id="item-consonantDiscount">
+          <div class="shopItemInfo">
+            <span class="shopItemName">🔡 Consonant Deal</span>
+            <span class="shopItemDesc">Consonants cost $500</span>
+          </div>
+          <button onclick="buyItem('consonantDiscount')">$6,000</button>
+        </div>
+
+        <div class="shopItem" id="item-bonusWin">
+          <div class="shopItemInfo">
+            <span class="shopItemName">💰 Big Payout</span>
+            <span class="shopItemDesc">Win bonus +$5,000 extra</span>
+          </div>
+          <button onclick="buyItem('bonusWin')">$12,000</button>
+        </div>
+
+        <div class="shopItem" id="item-safetyNet">
+          <div class="shopItemInfo">
+            <span class="shopItemName">🛡️ Safety Net</span>
+            <span class="shopItemDesc">Don't lose on first bankrupt</span>
+          </div>
+          <button onclick="buyItem('safetyNet')">$15,000</button>
+        </div>
+      </div>
+
+      <div class="shopSection">
+        <div class="shopSectionTitle">🎨 Themes</div>
+
+        <div class="shopItem" id="item-themeLight">
+          <div class="shopItemInfo">
+            <span class="shopItemName">☀️ Light</span>
+            <span class="shopItemDesc">Default theme</span>
+          </div>
+          <button onclick="buyItem('themeLight')">Use</button>
+        </div>
+
+        <div class="shopItem" id="item-themeDark">
+          <div class="shopItemInfo">
+            <span class="shopItemName">🌙 Dark</span>
+            <span class="shopItemDesc">Built-in dark mode</span>
+          </div>
+          <button onclick="buyItem('themeDark')">Use</button>
+        </div>
+
+        <div class="shopItem" id="item-themeOcean">
+          <div class="shopItemInfo">
+            <span class="shopItemName">🌊 Ocean</span>
+            <span class="shopItemDesc">Cool blue vibes</span>
+          </div>
+          <button onclick="buyItem('themeOcean')">$5,000</button>
+        </div>
+
+        <div class="shopItem" id="item-themeForest">
+          <div class="shopItemInfo">
+            <span class="shopItemName">🌿 Forest</span>
+            <span class="shopItemDesc">Earthy green tones</span>
+          </div>
+          <button onclick="buyItem('themeForest')">$5,000</button>
+        </div>
+
+        <div class="shopItem" id="item-themeSunset">
+          <div class="shopItemInfo">
+            <span class="shopItemName">🌅 Sunset</span>
+            <span class="shopItemDesc">Warm orange & pink</span>
+          </div>
+          <button onclick="buyItem('themeSunset')">$5,000</button>
+        </div>
+
+        <div class="shopItem" id="item-themeCandy">
+          <div class="shopItemInfo">
+            <span class="shopItemName">🍬 Candy</span>
+            <span class="shopItemDesc">Pastel & playful</span>
+          </div>
+          <button onclick="buyItem('themeCandy')">$5,000</button>
+        </div>
+      </div>
+
+      <p id="shopMsg"></p>
+    </div>
+
+    <!-- GAME -->
+    <div id="gameArea">
+      <h1>Letter Auction</h1>
+
+      <div>🔥 Max Streak: <span id="maxStreak">0</span></div>
+      <div>Games Won: <span id="gamesWon">0</span></div>
+
+      <h2 id="balance"></h2>
+      <div id="word"></div>
+      <p id="message"></p>
+      <div id="keyboard"></div>
+
+      <div id="buttonArea">
+        <button id="newGameBtn" onclick="startGame()">New Game</button>
+        <button id="restartIconBtn" onclick="openRestartModal()" aria-label="Restart run">↻</button>
+      </div>
+    </div>
+
+    <!-- LEADERBOARD -->
+    <div id="leaderboard">
+      <h2>🏆 Leaderboards</h2>
+
+      <div id="tabs">
+        <button onclick="setTab('daily')">Daily</button>
+        <button onclick="setTab('weekly')">Weekly</button>
+        <button onclick="setTab('monthly')">Monthly</button>
+        <button onclick="setTab('legacy')">Legacy</button>
+      </div>
+
+      <div id="scores"></div>
+
+      <div id="authArea">
+        <p id="authStatus">Not signed in</p>
+        <div id="authButtons">
+          <button id="guestAuthBtn" onclick="signInGuest()">Continue as Guest</button>
+          <button id="googleAuthBtn" onclick="signInGoogle()">Sign in with Google</button>
+        </div>
+      </div>
+
+      <div id="submitArea">
+        <input id="nameInput" placeholder="Enter name" />
+        <button onclick="submitScore()">Submit</button>
+        <p id="nameError"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reset modal -->
+  <div id="restartModal" class="modalOverlay hidden">
+    <div class="modalCard">
+      <h3>Reset Run?</h3>
+      <p>This resets money, current streak, and shop purchases. Leaderboard stays.</p>
+
+      <div class="resetMaxRow">
+        <label class="resetMaxToggleWrap">
+          <input type="checkbox" id="resetMaxToggle" />
+          <span>Also reset max streak</span>
+        </label>
+        <small class="resetMaxWarning">Warning: this clears your highest streak.</small>
+      </div>
+
+      <div class="modalActions">
+        <button class="modalCancel" onclick="closeRestartModal()">Cancel</button>
+        <button class="modalConfirm" onclick="confirmRestart()">Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase init -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import { getFirestore, doc, getDoc, setDoc, collection, query, orderBy, limit, getDocs, serverTimestamp, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+    import { getAuth, GoogleAuthProvider, signInAnonymously, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBP1xGO5PhqWX_pCzXxSzjFXO-g6Dk9w0Q",
+      authDomain: "letterauction-f86e8.firebaseapp.com",
+      projectId: "letterauction-f86e8",
+      storageBucket: "letterauction-f86e8.firebasestorage.app",
+      messagingSenderId: "827897399002",
+      appId: "1:827897399002:web:991f3f826e930bde8587e3",
+      measurementId: "G-9TPFKR3G8V"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    const googleProvider = new GoogleAuthProvider();
+
+    // expose SDK helpers for game.js
+    window.firebaseCtx = {
+      db, auth, googleProvider, signInAnonymously, signInWithPopup, onAuthStateChanged, signOut,
+      doc, getDoc, setDoc, collection, query, orderBy, limit, getDocs, serverTimestamp, deleteDoc
+    };
+  </script>
+
+  <script src="words.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
