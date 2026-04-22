@@ -593,23 +593,25 @@ function confirmRestart() {
   saveRunState();
   saveUpgrades();
 
-  playerName = "";
-  nameLocked = false;
-  const input = document.getElementById("nameInput");
-  if (input) {
-    input.value = "";
-    input.style.display = "inline-block";
-  }
+  if (resetMaxToo) {
+    playerName = "";
+    nameLocked = false;
+    const input = document.getElementById("nameInput");
+    if (input) {
+      input.value = "";
+      input.style.display = "inline-block";
+    }
 
-  const nameMsg = document.getElementById("nameError");
-  if (nameMsg) {
-    nameMsg.className = "";
-    nameMsg.innerText = "";
+    const nameMsg = document.getElementById("nameError");
+    if (nameMsg) {
+      nameMsg.className = "";
+      nameMsg.innerText = "";
+    }
   }
 
   applyTheme("light");
   startGame();
-  flashMsg(resetMaxToo ? "Run + max streak reset!" : "Run reset!");
+  flashMsg(resetMaxToo ? "Run + max streak reset + name cleared!" : "Run reset!");
 }
 
 /* ---------- Firebase leaderboard ---------- */
