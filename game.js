@@ -464,7 +464,7 @@ function buyItem(id) {
     flashMsg("Consonants now cost $500!");
   } else if (id === "bonusWin") {
     upgrades.bonusWin = true;
-    flashMsg("Win bonus upgraded to $12,500!");
+    flashMsg("Win bonus upgraded to $11,000!");
   } else if (id === "safetyNet") {
     upgrades.safetyNet = true;
     flashMsg("Safety Net active!");
@@ -536,7 +536,7 @@ async function useLetter(l) {
 
   if (!display.includes("_")) {
     if (balance < 0) balance = 0;
-    const winBonus = upgrades.bonusWin ? 12500 : 10000;
+    const winBonus = upgrades.bonusWin ? 11000 : 10000;
     balance += winBonus;
     gamesWon++;
     const improved = gamesWon > maxStreak;
