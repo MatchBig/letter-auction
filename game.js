@@ -136,6 +136,26 @@ function scopeForUser(user) {
   if (!user) return "signed-out";
   return user.isAnonymous ? `guest:${user.uid}` : `google:${user.uid}`;
 }
+async function loadStateFromCloud(user) {
+  if (!user || user.isAnonymous || !fb()) return false;
+  const ctx = fb();
+  const ref = userProfileDoc(user.uid);
+  const snap = await ctx.getDoc(ref);
+  if (!snap.exists()) return false;
+  const data = snap.data();
+  if (data.runState) {
+    balance = data.runState.balance || 0;
+    gamesWon = data.runState.gamesWon || 0;
+    maxStreak = data.runState.maxStreak || 0;
+  }
+  if (data.upgrades) {
+    upgrades = { ...makeDefaultUpgrades(), ...data.upgrades };
+  }
+  if (data.resetTimes) {
+    resetTimes = data.resetTimes;
+  }
+  return true;
+}
 async function activateSession(user) {
   activeStorageScope = scopeForUser(user);
   const input = document.getElementById("nameInput");
@@ -153,8 +173,11 @@ async function activateSession(user) {
     clearScopedStorage();
     resetInMemoryState();
   } else {
-    if (hasScopedState()) loadStateFromStorage();
-    else resetInMemoryState();
+    const loadedFromCloud = await loadStateFromCloud(user);
+    if (!loadedFromCloud) {
+      if (hasScopedState()) loadStateFromStorage();
+      else resetInMemoryState();
+    }
   }
 
   checkResets();
@@ -227,9 +250,23 @@ async function loadPlayerNameForCurrentUser() {
 /* ---------- Save/Render helpers ---------- */
 function saveRunState() {
   localStorage.setItem(scopedKey("runState"), JSON.stringify({ balance, gamesWon, maxStreak }));
+  saveRunStateToCloud().catch(() => {});
 }
 function saveUpgrades() {
   localStorage.setItem(scopedKey("upgrades"), JSON.stringify(upgrades));
+  saveUpgradesToCloud().catch(() => {});
+}
+async function saveRunStateToCloud() {
+  if (!authReady || !fb() || !fb().auth.currentUser || fb().auth.currentUser.isAnonymous) return;
+  const ctx = fb();
+  const ref = userProfileDoc(ctx.auth.currentUser.uid);
+  await ctx.setDoc(ref, { runState: { balance, gamesWon, maxStreak }, updatedAt: ctx.serverTimestamp() }, { merge: true });
+}
+async function saveUpgradesToCloud() {
+  if (!authReady || !fb() || !fb().auth.currentUser || fb().auth.currentUser.isAnonymous) return;
+  const ctx = fb();
+  const ref = userProfileDoc(ctx.auth.currentUser.uid);
+  await ctx.setDoc(ref, { upgrades, resetTimes, updatedAt: ctx.serverTimestamp() }, { merge: true });
 }
 function render() {
   document.getElementById("balance").innerText = "$" + balance.toLocaleString();
