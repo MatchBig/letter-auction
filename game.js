@@ -588,6 +588,10 @@ async function fetchBoard(board) {
 }
 async function renderLeaderboard() {
   const box = document.getElementById("scores");
+  if (!authReady) {
+    box.innerHTML = "<p>Please sign in to view the leaderboard.</p>";
+    return;
+  }
   box.innerHTML = "<p>Loading...</p>";
   const requestId = (renderLeaderboard._requestId || 0) + 1;
   renderLeaderboard._requestId = requestId;
@@ -783,6 +787,7 @@ async function initAuth() {
 
   ctx.onAuthStateChanged(ctx.auth, async (user) => {
     updateAuthUiFromUser(user);
+    await renderLeaderboard();
     await activateSession(user);
     if (!user || user.isAnonymous) return;
     try {
