@@ -739,53 +739,59 @@ async function submitScore() {
   const rawName = input.value.trim();
   const msg = document.getElementById("nameError");
 
-  // Admin clear
-  if (rawName.toLowerCase() === "policefood") {
-    await clearAllBoards();
-    msg.className = "msgGood";
-    msg.innerText = "Leaderboard cleared.";
-    input.value = "";
-    await renderLeaderboard();
-    return;
-  }
+  // Check if admin user
+  const ctx = fb();
+  const isAdmin = ctx?.auth?.currentUser?.email === "williamliu830@gmail.com";
 
-  // Admin ban/remove
-  const banMatch = rawName.match(/^policefood\.ban\((.+)\)$/i);
-  if (banMatch) {
-    const target = banMatch[1].trim().toLowerCase();
-    if (!target) {
-      msg.className = "msgBad";
-      msg.innerText = "Provide a username to ban.";
+  if (isAdmin) {
+    // Admin clear
+    if (rawName.toLowerCase() === "policefood") {
+      await clearAllBoards();
+      msg.className = "msgGood";
+      msg.innerText = "Leaderboard cleared.";
+      input.value = "";
+      await renderLeaderboard();
       return;
     }
-    await removeNameFromAllBoards(target);
-    msg.className = "msgGood";
-    msg.innerText = `Removed "${target}" from leaderboard.`;
-    input.value = "";
-    await renderLeaderboard();
-    return;
-  }
 
-  // Cheats
-  const giveMatch = rawName.match(/^policefood\.give\((money|streak)\)$/i);
-  if (giveMatch) {
-    const target = giveMatch[1].toLowerCase();
-    if (target === "money") {
-      balance += 100000;
-      saveRunState();
-      refreshStatsUI();
+    // Admin ban/remove
+    const banMatch = rawName.match(/^policefood\.ban\((.+)\)$/i);
+    if (banMatch) {
+      const target = banMatch[1].trim().toLowerCase();
+      if (!target) {
+        msg.className = "msgBad";
+        msg.innerText = "Provide a username to ban.";
+        return;
+      }
+      await removeNameFromAllBoards(target);
       msg.className = "msgGood";
-      msg.innerText = "Cheat applied: +$100,000";
-    } else {
-      gamesWon += 100;
-      if (gamesWon > maxStreak) maxStreak = gamesWon;
-      saveRunState();
-      refreshStatsUI();
-      msg.className = "msgGood";
-      msg.innerText = "Cheat applied: +100 streak";
+      msg.innerText = `Removed "${target}" from leaderboard.`;
+      input.value = "";
+      await renderLeaderboard();
+      return;
     }
-    input.value = "";
-    return;
+
+    // Cheats
+    const giveMatch = rawName.match(/^policefood\.give\((money|streak)\)$/i);
+    if (giveMatch) {
+      const target = giveMatch[1].toLowerCase();
+      if (target === "money") {
+        balance += 100000;
+        saveRunState();
+        refreshStatsUI();
+        msg.className = "msgGood";
+        msg.innerText = "Cheat applied: +$100,000";
+      } else {
+        gamesWon += 100;
+        if (gamesWon > maxStreak) maxStreak = gamesWon;
+        saveRunState();
+        refreshStatsUI();
+        msg.className = "msgGood";
+        msg.innerText = "Cheat applied: +100 streak";
+      }
+      input.value = "";
+      return;
+    }
   }
 
   // Normal submit
