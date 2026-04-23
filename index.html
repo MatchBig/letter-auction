@@ -28,7 +28,7 @@
         <div class="shopItem" id="item-vowelDiscount">
           <div class="shopItemInfo">
             <span class="shopItemName">🔤 Vowel Deal</span>
-            <span class="shopItemDesc">Vowels cost $750</span>
+            <span class="shopItemDesc">Vowels cost $1,250</span>
           </div>
           <button onclick="buyItem('vowelDiscount')">$8,000</button>
         </div>
@@ -36,7 +36,7 @@
         <div class="shopItem" id="item-consonantDiscount">
           <div class="shopItemInfo">
             <span class="shopItemName">🔡 Consonant Deal</span>
-            <span class="shopItemDesc">Consonants cost $500</span>
+            <span class="shopItemDesc">Consonants cost $1,000</span>
           </div>
           <button onclick="buyItem('consonantDiscount')">$6,000</button>
         </div>
@@ -142,6 +142,15 @@
         <button onclick="setTab('legacy')">Legacy</button>
       </div>
 
+      <div id="leaderboardSwitch">
+        <span>Score</span>
+        <label class="switch">
+          <input type="checkbox" id="leaderboardTypeToggle" onchange="toggleLeaderboardType()">
+          <span class="slider"></span>
+        </label>
+        <span>Money</span>
+      </div>
+
       <div id="scores"></div>
 
       <div id="authArea">
@@ -186,6 +195,19 @@
         <button class="modalCancel" onclick="closeRestartModal()">Cancel</button>
         <button class="modalConfirm" onclick="confirmRestart()">Reset</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Instructions modal -->
+  <div id="instructionsModal" class="modalOverlay hidden">
+    <div class="modalCard instructionsCard">
+      <h3>🎉 Welcome to Letter Auction! 🎉</h3>
+      <p>Buy letters to form words and build your winning streak!</p>
+      <p>Vowels cost $1,250, consonants $1,000. Great deals in the shop!</p>
+      <p>Win games to increase your streak and earn money.</p>
+      <p>Check the leaderboards for rankings!</p>
+      <p>Customize your theme in the shop.</p>
+      <button onclick="closeInstructions()">🚀 Let's Play!</button>
     </div>
   </div>
 

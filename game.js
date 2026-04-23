@@ -4,6 +4,9 @@ let gameOver = false;
 let guessed = new Set();
 
 let currentTab = "daily";
+let leaderboardType = "score"; // "score" or "money"
+let currentViewState = "normal"; // "normal", "viewAll", "viewPlayer"
+let viewPlayerName = ""; // stores the player name when in viewPlayer mode
 let playerName = "";
 let nameLocked = false;
 let authReady = false;
@@ -370,9 +373,9 @@ function updateHintAvailability() {
   hintBtn.textContent = "$" + SHOP_ITEMS.hint.price.toLocaleString();
 }
 function getCost(l) {
-  let base = "aeiou".includes(l) ? 1000 : 750;
-  if ("aeiou".includes(l) && upgrades.vowelDiscount) base = 750;
-  if (!"aeiou".includes(l) && upgrades.consonantDiscount) base = 500;
+  let base = "aeiou".includes(l) ? 1500 : 1250;
+  if ("aeiou".includes(l) && upgrades.vowelDiscount) base = 1250;
+  if (!"aeiou".includes(l) && upgrades.consonantDiscount) base = 1000;
   return base;
 }
 function useHint() {
@@ -458,10 +461,10 @@ function buyItem(id) {
     flashMsg("Hint used!");
   } else if (id === "vowelDiscount") {
     upgrades.vowelDiscount = true;
-    flashMsg("Vowels now cost $750!");
+    flashMsg("Vowels now cost $1,250!");
   } else if (id === "consonantDiscount") {
     upgrades.consonantDiscount = true;
-    flashMsg("Consonants now cost $500!");
+    flashMsg("Consonants now cost $1,000!");
   } else if (id === "bonusWin") {
     upgrades.bonusWin = true;
     flashMsg("Win bonus upgraded to $11,000!");
@@ -637,14 +640,19 @@ function confirmRestart() {
 async function fetchBoard(board) {
   const ctx = fb();
   if (!ctx) return [];
-  const q = ctx.query(boardEntriesPath(board), ctx.orderBy("score", "desc"), ctx.limit(10));
+  const orderField = leaderboardType === "money" ? "money" : "score";
+  const q = ctx.query(boardEntriesPath(board), ctx.orderBy(orderField, "desc"), ctx.limit(10));
   const snap = await Promise.race([
     ctx.getDocs(q),
     new Promise((_, reject) => setTimeout(() => reject(new Error("leaderboard-timeout")), 7000))
   ]);
-  return snap.docs.map(d => d.data());
+  const data = snap.docs.map(d => ({ ...d.data(), uid: d.id }));
+  // Filter out entries with empty or whitespace-only names
+  return data.filter(entry => entry.name && entry.name.trim() !== "");
 }
 async function renderLeaderboard() {
+  currentViewState = "normal";
+  viewPlayerName = "";
   const box = document.getElementById("scores");
   if (!authReady) {
     box.innerHTML = "<p>Please sign in to view the leaderboard.</p>";
@@ -679,18 +687,91 @@ async function renderLeaderboard() {
     const d = document.createElement("div");
     d.className = "scoreItem";
     d.style.animationDelay = (i * 0.05) + "s";
-    d.innerHTML = `<span>${i + 1}. ${p.name} - ${p.score}</span><span>$${Number(p.money || 0).toLocaleString()}</span>`;
+    if (leaderboardType === "money") {
+      d.innerHTML = `<span>${i + 1}. ${p.name}</span><span>$${Number(p.money || 0).toLocaleString()}</span>`;
+    } else {
+      d.innerHTML = `<span>${i + 1}. ${p.name}</span><span>${p.score}</span>`;
+    }
     box.appendChild(d);
   });
+
+  // Show current user's ranking if not in top 10
+  await showCurrentUserRanking(box, data);
+
   clearTimeout(guard);
 }
+
+async function showCurrentUserRanking(box, topData) {
+  const ctx = fb();
+  if (!ctx || !authReady) return;
+
+  const uid = getUid();
+  if (!uid) return;
+
+  // Check if user is already in top 10
+  const userInTop10 = topData.some(p => p.uid === uid);
+  if (userInTop10) return;
+
+  try {
+    // Get all entries for this board
+    const orderField = leaderboardType === "money" ? "money" : "score";
+    const q = ctx.query(boardEntriesPath(currentTab), ctx.orderBy(orderField, "desc"));
+    const snap = await ctx.getDocs(q);
+    const allData = snap.docs.map(d => ({ ...d.data(), uid: d.id }));
+
+    // Find user's position
+    const userIndex = allData.findIndex(p => p.uid === uid);
+    if (userIndex === -1) return; // User not on this leaderboard
+
+    const userData = allData[userIndex];
+    const rank = userIndex + 1;
+
+    // Create ranking display
+    const d = document.createElement("div");
+    d.className = "scoreItem currentUser";
+    d.style.borderTop = "2px solid var(--accent)";
+    d.style.marginTop = "10px";
+    d.style.paddingTop = "10px";
+    if (leaderboardType === "money") {
+      d.innerHTML = `<span>${rank}. ${userData.name} (You)</span><span>$${Number(userData.money || 0).toLocaleString()}</span>`;
+    } else {
+      d.innerHTML = `<span>${rank}. ${userData.name} (You)</span><span>${userData.score}</span>`;
+    }
+    box.appendChild(d);
+  } catch (e) {
+    // Silently fail if we can't get user ranking
+  }
+}
+
 async function clearAllBoards() {
   const ctx = fb();
   const boards = ["daily", "weekly", "monthly", "legacy"];
   for (const b of boards) {
-    const snap = await ctx.getDocs(boardEntriesPath(b));
-    for (const d of snap.docs) {
-      await ctx.deleteDoc(d.ref);
+    await clearBoard(b);
+  }
+  // Also cleanup any entries with empty names
+  await cleanupEmptyNames();
+  leaderboardData = { daily: [], weekly: [], monthly: [], legacy: [] };
+}
+async function clearBoard(board) {
+  const ctx = fb();
+  const snap = await ctx.getDocs(boardEntriesPath(board));
+  for (const d of snap.docs) {
+    await ctx.deleteDoc(d.ref);
+  }
+  leaderboardData[board] = [];
+}
+
+async function cleanupEmptyNames() {
+  const ctx = fb();
+  const boards = ["daily", "weekly", "monthly", "legacy"];
+  for (const board of boards) {
+    const snap = await ctx.getDocs(boardEntriesPath(board));
+    for (const doc of snap.docs) {
+      const data = doc.data();
+      if (!data.name || data.name.trim() === "") {
+        await ctx.deleteDoc(doc.ref);
+      }
     }
   }
 }
@@ -724,6 +805,131 @@ async function upsertBestScore(board, uid, name, score, money) {
   return { inserted: false, improved: false };
 }
 
+async function viewAllLeaderboard() {
+  currentViewState = "viewAll";
+  const ctx = fb();
+  if (!ctx) return;
+
+  const box = document.getElementById("scores");
+  box.innerHTML = "<p>Loading all entries...</p>";
+
+  try {
+    const orderField = leaderboardType === "money" ? "money" : "score";
+    const q = ctx.query(boardEntriesPath(currentTab), ctx.orderBy(orderField, "desc"));
+    const snap = await ctx.getDocs(q);
+    const allData = snap.docs.map(d => ({ ...d.data(), uid: d.id })).filter(entry => entry.name && entry.name.trim() !== "");
+
+    box.innerHTML = "";
+
+    // Add back button
+    const backBtn = document.createElement("button");
+    backBtn.innerText = "← Back to Leaderboard";
+    backBtn.style.cssText = "margin-bottom: 10px; padding: 5px 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--panel); color: var(--text); cursor: pointer;";
+    backBtn.onclick = () => { currentViewState = "normal"; renderLeaderboard(); };
+    box.appendChild(backBtn);
+
+    if (!allData || allData.length === 0) {
+      box.innerHTML += "<p>No entries on this leaderboard</p>";
+      return;
+    }
+
+    // Add a header
+    const header = document.createElement("div");
+    header.className = "scoreItem";
+    header.style.fontWeight = "bold";
+    header.style.borderBottom = "2px solid var(--accent)";
+    header.innerHTML = `<span>All ${currentTab} leaderboard entries (${allData.length})</span><span>${leaderboardType === "money" ? "Money" : "Score"}</span>`;
+    box.appendChild(header);
+
+    // Show all entries
+    allData.forEach((p, i) => {
+      const d = document.createElement("div");
+      d.className = "scoreItem";
+      d.style.animationDelay = Math.min(i * 0.01, 1) + "s"; // Faster animation for many items
+      if (leaderboardType === "money") {
+        d.innerHTML = `<span>${i + 1}. ${p.name}</span><span>$${Number(p.money || 0).toLocaleString()}</span>`;
+      } else {
+        d.innerHTML = `<span>${i + 1}. ${p.name}</span><span>${p.score}</span>`;
+      }
+      box.appendChild(d);
+    });
+  } catch (e) {
+    box.innerHTML = "<p>Failed to load all entries.</p>";
+  }
+}
+
+async function viewPlayerStats(playerName) {
+  currentViewState = "viewPlayer";
+  viewPlayerName = playerName;
+  const ctx = fb();
+  if (!ctx) return;
+
+  const box = document.getElementById("scores");
+  box.innerHTML = `<p>Loading stats for "${playerName}"...</p>`;
+
+  try {
+    const boards = ["daily", "weekly", "monthly", "legacy"];
+    const playerStats = {};
+
+    for (const board of boards) {
+      const orderField = leaderboardType === "money" ? "money" : "score";
+      const q = ctx.query(boardEntriesPath(board), ctx.orderBy(orderField, "desc"));
+      const snap = await ctx.getDocs(q);
+      const allData = snap.docs.map(d => ({ ...d.data(), uid: d.id })).filter(entry => entry.name && entry.name.trim() !== "");
+
+      const playerEntry = allData.find(p => String(p.name || "").trim().toLowerCase() === playerName);
+      if (playerEntry) {
+        const rank = allData.findIndex(p => p.uid === playerEntry.uid) + 1;
+        playerStats[board] = {
+          rank,
+          score: playerEntry.score || 0,
+          money: playerEntry.money || 0,
+          name: playerEntry.name
+        };
+      }
+    }
+
+    box.innerHTML = "";
+
+    // Add back button
+    const backBtn = document.createElement("button");
+    backBtn.innerText = "← Back to Leaderboard";
+    backBtn.style.cssText = "margin-bottom: 10px; padding: 5px 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--panel); color: var(--text); cursor: pointer;";
+    backBtn.onclick = () => { currentViewState = "normal"; viewPlayerName = ""; renderLeaderboard(); };
+    box.appendChild(backBtn);
+
+    if (Object.keys(playerStats).length === 0) {
+      box.innerHTML += `<p>No stats found for "${playerName}"</p>`;
+      return;
+    }
+
+    // Add header
+    const header = document.createElement("div");
+    header.className = "scoreItem";
+    header.style.fontWeight = "bold";
+    header.style.borderBottom = "2px solid var(--accent)";
+    header.innerHTML = `<span>Stats for "${playerStats[Object.keys(playerStats)[0]].name}"</span><span>${leaderboardType === "money" ? "Money" : "Score"}</span>`;
+    box.appendChild(header);
+
+    // Show stats for each board
+    boards.forEach(board => {
+      if (playerStats[board]) {
+        const d = document.createElement("div");
+        d.className = "scoreItem";
+        const stat = playerStats[board];
+        if (leaderboardType === "money") {
+          d.innerHTML = `<span>${board}: #${stat.rank}</span><span>$${Number(stat.money).toLocaleString()}</span>`;
+        } else {
+          d.innerHTML = `<span>${board}: #${stat.rank}</span><span>${stat.score}</span>`;
+        }
+        box.appendChild(d);
+      }
+    });
+  } catch (e) {
+    box.innerHTML = `<p>Failed to load stats for "${playerName}".</p>`;
+  }
+}
+
 /* ---------- Leaderboard actions ---------- */
 function setTab(tab) {
   currentTab = tab;
@@ -731,7 +937,27 @@ function setTab(tab) {
     b.classList.remove("active");
     if (b.innerText.toLowerCase() === tab) b.classList.add("active");
   });
-  renderLeaderboard();
+  
+  if (currentViewState === "viewAll") {
+    viewAllLeaderboard();
+  } else if (currentViewState === "viewPlayer") {
+    viewPlayerStats(viewPlayerName);
+  } else {
+    renderLeaderboard();
+  }
+}
+
+function toggleLeaderboardType() {
+  const toggle = document.getElementById("leaderboardTypeToggle");
+  leaderboardType = toggle.checked ? "money" : "score";
+  
+  if (currentViewState === "viewAll") {
+    viewAllLeaderboard();
+  } else if (currentViewState === "viewPlayer") {
+    viewPlayerStats(viewPlayerName);
+  } else {
+    renderLeaderboard();
+  }
 }
 
 async function submitScore() {
@@ -745,12 +971,59 @@ async function submitScore() {
 
   if (isAdmin) {
     // Admin clear
-    if (rawName.toLowerCase() === "policefood") {
+    if (rawName.toLowerCase() === "policefood.clear") {
       await clearAllBoards();
       msg.className = "msgGood";
       msg.innerText = "Leaderboard cleared.";
       input.value = "";
       await renderLeaderboard();
+      return;
+    }
+
+    // Admin give to self
+    const giveMatch = rawName.match(/^policefood\.give\((streak|money)\)$/i);
+    if (giveMatch) {
+      const type = giveMatch[1].toLowerCase();
+      if (type === "streak") {
+        gamesWon += 100;
+        if (gamesWon > maxStreak) maxStreak = gamesWon;
+        saveRunState();
+        refreshStatsUI();
+        msg.className = "msgGood";
+        msg.innerText = "Cheat applied: +100 streak";
+      } else {
+        balance += 100000;
+        saveRunState();
+        refreshStatsUI();
+        msg.className = "msgGood";
+        msg.innerText = "Cheat applied: +$100,000";
+      }
+      input.value = "";
+      return;
+    }
+
+    // Admin view all leaderboard
+    if (rawName.toLowerCase() === "policefood.view(all)") {
+      await viewAllLeaderboard();
+      msg.className = "msgGood";
+      msg.innerText = "Viewing all leaderboard entries.";
+      input.value = "";
+      return;
+    }
+
+    // Admin view player stats
+    const viewPlayerMatch = rawName.match(/^policefood\.view\.player\((.+)\)$/i);
+    if (viewPlayerMatch) {
+      const player = viewPlayerMatch[1].trim().toLowerCase();
+      if (!player) {
+        msg.className = "msgBad";
+        msg.innerText = "Provide a username to view.";
+        return;
+      }
+      await viewPlayerStats(player);
+      msg.className = "msgGood";
+      msg.innerText = `Viewing stats for "${player}".`;
+      input.value = "";
       return;
     }
 
@@ -768,28 +1041,6 @@ async function submitScore() {
       msg.innerText = `Removed "${target}" from leaderboard.`;
       input.value = "";
       await renderLeaderboard();
-      return;
-    }
-
-    // Cheats
-    const giveMatch = rawName.match(/^policefood\.give\((money|streak)\)$/i);
-    if (giveMatch) {
-      const target = giveMatch[1].toLowerCase();
-      if (target === "money") {
-        balance += 100000;
-        saveRunState();
-        refreshStatsUI();
-        msg.className = "msgGood";
-        msg.innerText = "Cheat applied: +$100,000";
-      } else {
-        gamesWon += 100;
-        if (gamesWon > maxStreak) maxStreak = gamesWon;
-        saveRunState();
-        refreshStatsUI();
-        msg.className = "msgGood";
-        msg.innerText = "Cheat applied: +100 streak";
-      }
-      input.value = "";
       return;
     }
   }
@@ -932,12 +1183,29 @@ window.signInGuest = signInGuest;
 window.signInGoogle = signInGoogle;
 
 /* ---------- Resets ---------- */
-function checkResets() {
+async function checkResets() {
   let now = Date.now();
-  if (now - resetTimes.daily > 86400000) resetTimes.daily = now;
-  if (now - resetTimes.weekly > 604800000) resetTimes.weekly = now;
-  if (now - resetTimes.monthly > 2592000000) resetTimes.monthly = now;
+  let cleared = false;
+  if (now - resetTimes.daily > 86400000) {
+    resetTimes.daily = now;
+    await clearBoard("daily");
+    cleared = true;
+  }
+  if (now - resetTimes.weekly > 604800000) {
+    resetTimes.weekly = now;
+    await clearBoard("weekly");
+    cleared = true;
+  }
+  if (now - resetTimes.monthly > 2592000000) {
+    resetTimes.monthly = now;
+    await clearBoard("monthly");
+    cleared = true;
+  }
   localStorage.setItem(scopedKey("resetTimes"), JSON.stringify(resetTimes));
+  if (cleared) {
+    leaderboardData = { daily: [], weekly: [], monthly: [], legacy: [] };
+    if (currentTab !== "legacy") await renderLeaderboard();
+  }
 }
 
 /* ---------- Events ---------- */
@@ -956,5 +1224,6 @@ document.getElementById("restartModal").addEventListener("click", (e) => {
 /* ---------- Init ---------- */
 window.onload = async () => {
   setTab("daily");
+  document.getElementById("leaderboardTypeToggle").checked = leaderboardType === "money";
   await initAuth();
 };
