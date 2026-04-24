@@ -3,7 +3,7 @@ let display = [];
 let gameOver = false;
 let guessed = new Set();
 
-let currentTab = "daily";
+let currentTab = "legacy";
 let leaderboardType = "score"; // "score" or "money"
 let currentViewState = "normal"; // "normal", "viewAll", "viewPlayer"
 let viewPlayerName = ""; // stores the player name when in viewPlayer mode
@@ -376,6 +376,8 @@ function getCost(l) {
   let base = "aeiou".includes(l) ? 1500 : 1250;
   if ("aeiou".includes(l) && upgrades.vowelDiscount) base = 1250;
   if (!"aeiou".includes(l) && upgrades.consonantDiscount) base = 1000;
+  // Streak 500+ bonus: additional -50 discount
+  if (maxStreak >= 500) base -= 50;
   return base;
 }
 function useHint() {
@@ -407,7 +409,9 @@ function useHint() {
 
   if (!display.includes("_")) {
     if (balance < 0) balance = 0;
-    const winBonus = upgrades.bonusWin ? 15000 : 10000;
+    let winBonus = upgrades.bonusWin ? 15000 : 10000;
+    // Streak 500+ bonus: additional +2000
+    if (maxStreak >= 500) winBonus += 2000;
     balance += winBonus;
     gamesWon++;
     if (gamesWon > maxStreak) maxStreak = gamesWon;
@@ -539,7 +543,9 @@ async function useLetter(l) {
 
   if (!display.includes("_")) {
     if (balance < 0) balance = 0;
-    const winBonus = upgrades.bonusWin ? 11000 : 10000;
+    let winBonus = upgrades.bonusWin ? 11000 : 10000;
+    // Streak 500+ bonus: additional +2000
+    if (maxStreak >= 500) winBonus += 2000;
     balance += winBonus;
     gamesWon++;
     const improved = gamesWon > maxStreak;
@@ -641,14 +647,14 @@ async function fetchBoard(board) {
   const ctx = fb();
   if (!ctx) return [];
   const orderField = leaderboardType === "money" ? "money" : "score";
-  const q = ctx.query(boardEntriesPath(board), ctx.orderBy(orderField, "desc"), ctx.limit(10));
+  const q = ctx.query(boardEntriesPath(board), ctx.orderBy(orderField, "desc"), ctx.limit(20));
   const snap = await Promise.race([
     ctx.getDocs(q),
     new Promise((_, reject) => setTimeout(() => reject(new Error("leaderboard-timeout")), 7000))
   ]);
   const data = snap.docs.map(d => ({ ...d.data(), uid: d.id }));
-  // Filter out entries with empty or whitespace-only names
-  return data.filter(entry => entry.name && entry.name.trim() !== "");
+  // Filter out entries with empty or whitespace-only names, then ensure top 10
+  return data.filter(entry => entry.name && entry.name.trim() !== "").slice(0, 10);
 }
 async function renderLeaderboard() {
   currentViewState = "normal";
@@ -1223,7 +1229,7 @@ document.getElementById("restartModal").addEventListener("click", (e) => {
 
 /* ---------- Init ---------- */
 window.onload = async () => {
-  setTab("daily");
+  setTab("legacy");
   document.getElementById("leaderboardTypeToggle").checked = leaderboardType === "money";
   await initAuth();
 };
