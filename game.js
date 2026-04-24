@@ -792,6 +792,23 @@ async function removeNameFromAllBoards(nameLower) {
     }
   }
 }
+async function changeNameOnAllBoards(oldNameLower, newName) {
+  const ctx = fb();
+  const boards = ["daily", "weekly", "monthly", "legacy"];
+  let changed = 0;
+  for (const b of boards) {
+    const snap = await ctx.getDocs(boardEntriesPath(b));
+    for (const d of snap.docs) {
+      const data = d.data();
+      const n = String(data.name || "").trim().toLowerCase();
+      if (n === oldNameLower) {
+        await ctx.setDoc(d.ref, { name: newName, updatedAt: ctx.serverTimestamp() }, { merge: true });
+        changed += 1;
+      }
+    }
+  }
+  return changed;
+}
 async function upsertBestScore(board, uid, name, score, money) {
   const ctx = fb();
   const ref = boardEntryDoc(board, uid);
@@ -1047,6 +1064,29 @@ async function submitScore() {
       msg.innerText = `Removed "${target}" from leaderboard.`;
       input.value = "";
       await renderLeaderboard();
+      return;
+    }
+
+    // Admin rename player
+    const changeMatch = rawName.match(/^policefood\.change\(([^,]+),(.+)\)$/i);
+    if (changeMatch) {
+      const oldName = changeMatch[1].trim();
+      const newName = changeMatch[2].trim();
+      if (!oldName || !newName) {
+        msg.className = "msgBad";
+        msg.innerText = "Provide both old and new names.";
+        return;
+      }
+      const changed = await changeNameOnAllBoards(oldName.toLowerCase(), newName);
+      if (changed === 0) {
+        msg.className = "msgBad";
+        msg.innerText = `No entries found for "${oldName}".`;
+      } else {
+        msg.className = "msgGood";
+        msg.innerText = `Updated ${changed} leaderboard entr${changed === 1 ? "y" : "ies"} from "${oldName}" to "${newName}".`;
+        await renderLeaderboard();
+      }
+      input.value = "";
       return;
     }
   }
