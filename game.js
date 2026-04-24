@@ -1068,6 +1068,11 @@ async function submitScore() {
       msg.innerText = "Enter a name!";
       return;
     }
+    if (rawName.length > 12) {
+      msg.className = "msgBad";
+      msg.innerText = "Name must be 12 characters or fewer.";
+      return;
+    }
     playerName = rawName;
     nameLocked = true;
     input.style.display = "none";
