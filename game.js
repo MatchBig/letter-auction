@@ -410,8 +410,8 @@ function useHint() {
   if (!display.includes("_")) {
     if (balance < 0) balance = 0;
     let winBonus = upgrades.bonusWin ? 15000 : 10000;
-    // Streak 500+ bonus: additional +2000
-    if (maxStreak >= 500) winBonus += 2000;
+    // Streak 500+ bonus: additional +3000
+    if (maxStreak >= 500) winBonus += 3000;
     balance += winBonus;
     gamesWon++;
     if (gamesWon > maxStreak) maxStreak = gamesWon;
@@ -544,8 +544,8 @@ async function useLetter(l) {
   if (!display.includes("_")) {
     if (balance < 0) balance = 0;
     let winBonus = upgrades.bonusWin ? 11000 : 10000;
-    // Streak 500+ bonus: additional +2000
-    if (maxStreak >= 500) winBonus += 2000;
+    // Streak 500+ bonus: additional +3000
+    if (maxStreak >= 500) winBonus += 3000;
     balance += winBonus;
     gamesWon++;
     const improved = gamesWon > maxStreak;
