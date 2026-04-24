@@ -816,16 +816,22 @@ async function upsertBestScore(board, uid, name, score, money) {
 
   if (!existing.exists()) {
     await ctx.setDoc(ref, { name, score, money, updatedAt: ctx.serverTimestamp() });
-    return { inserted: true, improved: true };
+    return { inserted: true, improved: true, nameUpdated: false };
   }
 
   const prev = existing.data();
+  const prevName = String(prev.name || "").trim();
   if (score > (prev.score || 0)) {
     await ctx.setDoc(ref, { name, score, money, updatedAt: ctx.serverTimestamp() }, { merge: true });
-    return { inserted: false, improved: true };
+    return { inserted: false, improved: true, nameUpdated: name !== prevName };
   }
 
-  return { inserted: false, improved: false };
+  if (name !== prevName) {
+    await ctx.setDoc(ref, { name, updatedAt: ctx.serverTimestamp() }, { merge: true });
+    return { inserted: false, improved: false, nameUpdated: true };
+  }
+
+  return { inserted: false, improved: false, nameUpdated: false };
 }
 
 async function viewAllLeaderboard() {
@@ -1123,11 +1129,13 @@ async function submitScore() {
   const boards = ["daily", "weekly", "monthly", "legacy"];
   let improvedAny = false;
   let insertedAny = false;
+  let nameUpdatedAny = false;
 
   for (const b of boards) {
     const res = await upsertBestScore(b, uid, playerName, currentScore, currentMoney);
     if (res.improved) improvedAny = true;
     if (res.inserted) insertedAny = true;
+    if (res.nameUpdated) nameUpdatedAny = true;
   }
 
   if (insertedAny) {
@@ -1136,6 +1144,9 @@ async function submitScore() {
   } else if (improvedAny) {
     msg.className = "msgGood";
     msg.innerText = "Score improved!";
+  } else if (nameUpdatedAny) {
+    msg.className = "msgGood";
+    msg.innerText = "Name updated.";
   } else {
     msg.className = "msgBad";
     msg.innerText = "No improvement (best score kept).";
