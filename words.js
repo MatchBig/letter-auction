@@ -40,7 +40,7 @@ const WORDS = [
     "refer","relax","reply","right","risen","robin","roger","roman","rough","round",
     "route","royal","rural","scale","scene","scope","score","serve","seven","shall",
     "shape","share","sharp","sheet","shelf","shell","shift","shirt","shock","short",
-    "shown","sight","silence","silly","simon","since","sixth","sixty","sized","skill",
+    "shown","sight","silly","simon","since","sixth","sixty","sized","skill",
     "sleep","slide","small","smart","smith","smoke","solid","solve","sorry","south",
     "space","spare","speak","speed","spend","spent","split","spoke","sport","staff",
     "stage","stake","stand","start","state","steam","steel","stick","still","stock",

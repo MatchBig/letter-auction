@@ -12,7 +12,7 @@ let nameLocked = false;
 let authReady = false;
 
 const DEFAULT_RUN_STATE = {
-  balance: 25000,
+  balance: 50000,
   gamesWon: 0,
   maxStreak: 0
 };
